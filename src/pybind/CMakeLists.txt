@@ -56,10 +56,6 @@ foreach(python_version ${py_vers})
     DESTINATION ${PYTHON${PYTHON_VERSION}_INSTDIR})
 endforeach()
 
-install(FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/ceph_rest_api.py
-  DESTINATION ${PYTHON_INSTDIR})
-
 if(WITH_MGR)
   # Location needs to match default setting for mgr_module_path, currently:
   # OPTION(mgr_module_path, OPT_STR, CEPH_PKGLIBDIR "/mgr")
