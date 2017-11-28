@@ -3580,7 +3580,8 @@ namespace {
     RECOVERY_PRIORITY, RECOVERY_OP_PRIORITY, SCRUB_PRIORITY,
     COMPRESSION_MODE, COMPRESSION_ALGORITHM, COMPRESSION_REQUIRED_RATIO,
     COMPRESSION_MAX_BLOB_SIZE, COMPRESSION_MIN_BLOB_SIZE,
-    CSUM_TYPE, CSUM_MAX_BLOCK, CSUM_MIN_BLOCK };
+    CSUM_TYPE, CSUM_MAX_BLOCK, CSUM_MIN_BLOCK,
+    QOS_RES, QOS_WGT, OQS_LIM };
 
   std::set<osd_pool_get_choices>
     subtract_second_from_first(const std::set<osd_pool_get_choices>& first,
@@ -4197,6 +4198,7 @@ bool OSDMonitor::preprocess_command(MonOpRequestRef op)
       {"csum_type", CSUM_TYPE},
       {"csum_max_block", CSUM_MAX_BLOCK},
       {"csum_min_block", CSUM_MIN_BLOCK},
+      {"qos_res", QOS_RES}, {"qos_wgt", QOS_WGT}, {"qos_lim", OQS_LIM},
     };
 
     typedef std::set<osd_pool_get_choices> choices_set_t;
@@ -4270,6 +4272,7 @@ bool OSDMonitor::preprocess_command(MonOpRequestRef op)
           f->dump_string("pool", poolstr);
           f->dump_int("pool_id", pool);
         }
+	pool_opts_t::key_t key;
 	switch(*it) {
 	  case PG_NUM:
 	    f->dump_int("pg_num", p->get_pg_num());
@@ -4399,7 +4402,7 @@ bool OSDMonitor::preprocess_command(MonOpRequestRef op)
 	  case CSUM_TYPE:
 	  case CSUM_MAX_BLOCK:
 	  case CSUM_MIN_BLOCK:
-            pool_opts_t::key_t key = pool_opts_t::get_opt_desc(i->first).key;
+            key = pool_opts_t::get_opt_desc(i->first).key;
             if (p->opts.is_set(key)) {
               f->open_object_section("pool");
               f->dump_string("pool", poolstr);
@@ -4415,6 +4418,15 @@ bool OSDMonitor::preprocess_command(MonOpRequestRef op)
               f->flush(rdata);
             }
             break;
+	  case QOS_RES:
+	    f->dump_float("qos_res", p->get_qos_res());
+	    break;
+	  case QOS_WGT:
+	    f->dump_float("qos_wgt", p->get_qos_wgt());
+	    break;
+	  case OQS_LIM:
+	    f->dump_float("qos_lim", p->get_qos_lim());
+	    break;
 	}
         if (!pool_opt) {
 	  f->close_section();
@@ -4570,6 +4582,15 @@ bool OSDMonitor::preprocess_command(MonOpRequestRef op)
                 }
 	      }
 	    }
+	    break;
+	  case QOS_RES:
+	    ss << "qos_res: " << p->get_qos_res() << "\n";
+	    break;
+	  case QOS_WGT:
+	    ss << "qos_wgt: " << p->get_qos_wgt() << "\n";
+	    break;
+	  case OQS_LIM:
+	    ss << "qos_lim: " << p->get_qos_lim() << "\n";
 	    break;
 	}
 	rdata.append(ss.str());
@@ -6370,6 +6391,32 @@ int OSDMonitor::prepare_command_pool_set(const cmdmap_t& cmdmap,
     default:
       assert(!"unknown type");
     }
+  } else if (var == "qos_res") {
+    if (floaterr.length()) {
+      ss << "error parsing floating point value '" << val << "': " << floaterr;
+      return -EINVAL;
+    }
+    if (p.get_qos_wgt() == 0 && f == 0) {
+      ss << "error setting mclock parameter where reservation and proportion are both 0";
+      return -EINVAL;
+    }
+    p.set_qos_res(f);
+  } else if (var == "qos_wgt") {
+    if (floaterr.length()) {
+      ss << "error parsing floating point value '" << val << "': " << floaterr;
+      return -EINVAL;
+    }
+    if (p.get_qos_res() == 0 && f == 0) {
+      ss << "error setting mclock parameter where reservation and proportion are both 0";
+      return -EINVAL;
+    }
+    p.set_qos_wgt(f);
+  } else if (var == "qos_lim") {
+    if (floaterr.length()) {
+      ss << "error parsing floating point value '" << val << "': " << floaterr;
+      return -EINVAL;
+    }
+    p.set_qos_lim(f);
   } else {
     ss << "unrecognized variable '" << var << "'";
     return -EINVAL;
