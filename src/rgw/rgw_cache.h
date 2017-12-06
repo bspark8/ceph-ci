@@ -409,9 +409,14 @@ int RGWCache<T>::put_system_obj_impl(rgw_raw_obj& obj, uint64_t size, real_time 
   string name = normal_name(pool, oid);
   if (ret >= 0) {
     cache.put(name, info, NULL);
-    int r = distribute_cache(name, obj, info, UPDATE_OBJ);
-    if (r < 0)
-      mydout(0) << "ERROR: failed to distribute cache for " << obj << dendl;
+    // only distribute the cache information if we did not just create
+    // the object with the exclusive flag; note: PUT_OBJ_EXCL implies
+    // PUT_OBJ_CREATE
+    if (!(flags & PUT_OBJ_EXCL)) {
+      int r = distribute_cache(name, obj, info, UPDATE_OBJ);
+      if (r < 0)
+	mydout(0) << "ERROR: failed to distribute cache for " << obj << dendl;
+    }
   } else {
     cache.remove(name);
   }
