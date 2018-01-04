@@ -263,6 +263,7 @@ Requires:      which
 %if 0%{?suse_version}
 Recommends:    ntp-daemon
 %endif
+Conflicts:     ceph-test < %{_epoch_prefix}12.2.2-8
 %description base
 Base is the package that includes all the files shared amongst ceph servers
 
@@ -317,6 +318,7 @@ Requires:      python-flask
 %if 0%{?suse_version}
 Requires:      python-Flask
 %endif
+Conflicts:     ceph-test < %{_epoch_prefix}12.2.2-8
 %description mon
 ceph-mon is the cluster monitor daemon for the Ceph distributed file
 system. One or more instances of ceph-mon form a Paxos part-time
@@ -435,6 +437,7 @@ Requires:	gdisk
 Requires:	gptfdisk
 %endif
 Requires:       parted
+Conflicts:      ceph-test < %{_epoch_prefix}12.2.2-8
 %description osd
 ceph-osd is the object storage daemon for the Ceph distributed file
 system.  It is responsible for storing objects on a local file system
