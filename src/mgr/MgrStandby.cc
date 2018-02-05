@@ -144,6 +144,8 @@ int MgrStandby::init()
   client.init();
   timer.init();
 
+  py_module_registry.init();
+
   tick();
 
   dout(4) << "Complete." << dendl;
@@ -330,6 +332,8 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
   dout(4) << "active in map: " << active_in_map
           << " active is " << map.active_gid << dendl;
 
+  // We initialize py_module_registry on the first MgrMap, because earlier
+  // we did not know which modules should be enabled.
   if (!py_module_registry.is_initialized()) {
     int r = py_module_registry.init(map);
 
