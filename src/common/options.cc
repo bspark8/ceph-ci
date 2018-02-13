@@ -34,6 +34,9 @@ void Option::dump_value(const char *field_name,
     f->dump_float(field_name, boost::get<double>(v));
   } else if (type == TYPE_BOOL) {
     f->dump_bool(field_name, boost::get<bool>(v));
+  } else if (type == TYPE_SIZE) {
+    auto bytes = boost::get<size_t>(v);
+    f->dump_stream(field_name) << prettybyte_t(bytes.value);
   } else {
     f->dump_stream(field_name) << v;
   }
@@ -4457,7 +4460,7 @@ std::vector<Option> get_global_options() {
                           "if you simply do not require the most up to date "
                           "performance counter data."),
 
-    Option("mgr_client_bytes", Option::TYPE_UINT, Option::LEVEL_DEV)
+    Option("mgr_client_bytes", Option::TYPE_SIZE, Option::LEVEL_DEV)
     .set_default(128_M)
     .add_service("mgr"),
 
@@ -4465,7 +4468,7 @@ std::vector<Option> get_global_options() {
     .set_default(512)
     .add_service("mgr"),
 
-    Option("mgr_osd_bytes", Option::TYPE_UINT, Option::LEVEL_DEV)
+    Option("mgr_osd_bytes", Option::TYPE_SIZE, Option::LEVEL_DEV)
     .set_default(512_M)
     .add_service("mgr"),
 
@@ -4473,7 +4476,7 @@ std::vector<Option> get_global_options() {
     .set_default(8192)
     .add_service("mgr"),
 
-    Option("mgr_mds_bytes", Option::TYPE_UINT, Option::LEVEL_DEV)
+    Option("mgr_mds_bytes", Option::TYPE_SIZE, Option::LEVEL_DEV)
     .set_default(128_M)
     .add_service("mgr"),
 
@@ -4481,7 +4484,7 @@ std::vector<Option> get_global_options() {
     .set_default(128)
     .add_service("mgr"),
 
-    Option("mgr_mon_bytes", Option::TYPE_UINT, Option::LEVEL_DEV)
+    Option("mgr_mon_bytes", Option::TYPE_SIZE, Option::LEVEL_DEV)
     .set_default(128_M)
     .add_service("mgr"),
 
