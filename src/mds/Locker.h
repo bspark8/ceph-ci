@@ -72,7 +72,7 @@ protected:
 public:
   void include_snap_rdlocks(set<SimpleLock*>& rdlocks, CInode *in);
   void include_snap_rdlocks_wlayout(set<SimpleLock*>& rdlocks, CInode *in,
-                                    file_layout_t **layout);
+                                    const file_layout_t **layout);
 
   bool acquire_locks(MDRequestRef& mdr,
 		     set<SimpleLock*> &rdlocks,
@@ -259,7 +259,7 @@ protected:
   void file_update_finish(CInode *in, MutationRef& mut, bool share_max, bool issue_client_cap,
 			  client_t client, MClientCaps *ack);
 private:
-  uint64_t calc_new_max_size(CInode::mempool_inode *pi, uint64_t size);
+  uint64_t calc_new_max_size(const CInode::mempool_inode *pi, uint64_t size);
 public:
   void calc_new_client_ranges(CInode *in, uint64_t size,
 			      CInode::mempool_inode::client_range_map* new_ranges,

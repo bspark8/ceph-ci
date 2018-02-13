@@ -2580,7 +2580,7 @@ CDentry* Server::prepare_stray_dentry(MDRequestRef& mdr, CInode *in)
  * create a new inode.  set c/m/atime.  hit dir pop.
  */
 CInode* Server::prepare_new_inode(MDRequestRef& mdr, CDir *dir, inodeno_t useino, unsigned mode,
-				  file_layout_t *layout)
+				  const file_layout_t *layout)
 {
   CInode *in = new CInode(mdcache);
   
@@ -2779,7 +2779,7 @@ CInode* Server::rdlock_path_pin_ref(MDRequestRef& mdr, int n,
 				    bool want_auth,
 				    bool no_want_auth, /* for readdir, who doesn't want auth _even_if_ it's
 							  a snapped dir */
-				    file_layout_t **layout,
+				    const file_layout_t **layout,
 				    bool no_lookup)    // true if we cannot return a null dentry lease
 {
   const filepath& refpath = n ? mdr->get_filepath2() : mdr->get_filepath();
@@ -2876,7 +2876,7 @@ CInode* Server::rdlock_path_pin_ref(MDRequestRef& mdr, int n,
 CDentry* Server::rdlock_path_xlock_dentry(MDRequestRef& mdr, int n,
 					  set<SimpleLock*>& rdlocks, set<SimpleLock*>& wrlocks, set<SimpleLock*>& xlocks,
 					  bool okexist, bool mustexist, bool alwaysxlock,
-					  file_layout_t **layout)
+					  const file_layout_t **layout)
 {
   const filepath& refpath = n ? mdr->get_filepath2() : mdr->get_filepath();
 
@@ -3554,7 +3554,7 @@ void Server::handle_client_openc(MDRequestRef& mdr)
   }
 
   set<SimpleLock*> rdlocks, wrlocks, xlocks;
-  file_layout_t *dir_layout = NULL;
+  const file_layout_t *dir_layout = nullptr;
   CDentry *dn = rdlock_path_xlock_dentry(mdr, 0, rdlocks, wrlocks, xlocks,
                                          !excl, false, false, &dir_layout);
   if (!dn) return;
@@ -4428,7 +4428,7 @@ void Server::handle_client_setdirlayout(MDRequestRef& mdr)
 {
   MClientRequest *req = mdr->client_request;
   set<SimpleLock*> rdlocks, wrlocks, xlocks;
-  file_layout_t *dir_layout = NULL;
+  const file_layout_t *dir_layout = nullptr;
   CInode *cur = rdlock_path_pin_ref(mdr, 0, rdlocks, true, false, &dir_layout);
   if (!cur) return;
 
@@ -4693,7 +4693,7 @@ int Server::check_layout_vxattr(MDRequestRef& mdr,
 }
 
 void Server::handle_set_vxattr(MDRequestRef& mdr, CInode *cur,
-			       file_layout_t *dir_layout,
+			       const file_layout_t *dir_layout,
 			       set<SimpleLock*> rdlocks,
 			       set<SimpleLock*> wrlocks,
 			       set<SimpleLock*> xlocks)
@@ -4851,7 +4851,7 @@ void Server::handle_set_vxattr(MDRequestRef& mdr, CInode *cur,
 }
 
 void Server::handle_remove_vxattr(MDRequestRef& mdr, CInode *cur,
-				  file_layout_t *dir_layout,
+				  const file_layout_t *dir_layout,
 				  set<SimpleLock*> rdlocks,
 				  set<SimpleLock*> wrlocks,
 				  set<SimpleLock*> xlocks)
@@ -4937,7 +4937,7 @@ void Server::handle_client_setxattr(MDRequestRef& mdr)
   set<SimpleLock*> rdlocks, wrlocks, xlocks;
   CInode *cur;
 
-  file_layout_t *dir_layout = NULL;
+  const file_layout_t *dir_layout = nullptr;
   if (name.compare(0, 15, "ceph.dir.layout") == 0)
     cur = rdlock_path_pin_ref(mdr, 0, rdlocks, true, false, &dir_layout);
   else
@@ -5032,7 +5032,7 @@ void Server::handle_client_removexattr(MDRequestRef& mdr)
   MClientRequest *req = mdr->client_request;
   std::string name(req->get_path2());
   std::set<SimpleLock*> rdlocks, wrlocks, xlocks;
-  file_layout_t *dir_layout = NULL;
+  const file_layout_t *dir_layout = nullptr;
   CInode *cur;
   if (name == "ceph.dir.layout")
     cur = rdlock_path_pin_ref(mdr, 0, rdlocks, true, false, &dir_layout);
@@ -5144,7 +5144,7 @@ void Server::handle_client_mknod(MDRequestRef& mdr)
   MClientRequest *req = mdr->client_request;
   client_t client = mdr->get_client();
   set<SimpleLock*> rdlocks, wrlocks, xlocks;
-  file_layout_t *dir_layout = NULL;
+  const file_layout_t *dir_layout = nullptr;
   CDentry *dn = rdlock_path_xlock_dentry(mdr, 0, rdlocks, wrlocks, xlocks, false, false, false,
 					 &dir_layout);
   if (!dn) return;
@@ -8540,7 +8540,8 @@ void Server::do_rename_rollback(bufferlist &rbl, mds_rank_t master, MDRequestRef
       pip->version = in->pre_dirty();
       projected = true;
     } else {
-      pip = in->get_projected_inode();
+      assert(!in->is_projected());
+      pip = in->get_inode();
       projected = false;
     }
     if (pip->ctime == rollback.ctime)
@@ -8609,7 +8610,8 @@ void Server::do_rename_rollback(bufferlist &rbl, mds_rank_t master, MDRequestRef
       ti->version = target->pre_dirty();
       projected = true;
     } else {
-      ti = target->get_projected_inode();
+      assert(!target->is_projected());
+      ti = target->get_inode();
       projected = false;
     }
     if (ti->ctime == rollback.ctime)

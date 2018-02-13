@@ -1579,7 +1579,7 @@ void CInode::encode_lock_state(int type, bufferlist& bl)
 	frag_t fg = p.first;
 	CDir *dir = p.second;
 	if (is_auth() || dir->is_auth()) {
-	  fnode_t *pf = dir->get_projected_fnode();
+	  const fnode_t *pf = dir->get_projected_fnode();
 	  dout(15) << fg << " " << *dir << dendl;
 	  dout(20) << fg << "           fragstat " << pf->fragstat << dendl;
 	  dout(20) << fg << " accounted_fragstat " << pf->accounted_fragstat << dendl;
@@ -1612,7 +1612,7 @@ void CInode::encode_lock_state(int type, bufferlist& bl)
 	frag_t fg = p.first;
 	CDir *dir = p.second;
 	if (is_auth() || dir->is_auth()) {
-	  fnode_t *pf = dir->get_projected_fnode();
+	  const fnode_t *pf = dir->get_projected_fnode();
 	  dout(10) << fg << " " << *dir << dendl;
 	  dout(10) << fg << " " << pf->rstat << dendl;
 	  dout(10) << fg << " " << pf->rstat << dendl;
@@ -1811,9 +1811,8 @@ void CInode::decode_lock_state(int type, bufferlist& bl)
 	    dout(10) << fg << " first " << dir->first << " -> " << fgfirst
 		     << " on " << *dir << dendl;
 	    dir->first = fgfirst;
-	    fnode_t *pf = dir->get_projected_fnode();
-	    finish_scatter_update(&filelock, dir,
-				  inode.dirstat.version, pf->accounted_fragstat.version);
+	    finish_scatter_update(&filelock, dir, inode.dirstat.version,
+				  dir->get_projected_fnode()->accounted_fragstat.version);
 	  }
 	}
       }
@@ -1874,9 +1873,8 @@ void CInode::decode_lock_state(int type, bufferlist& bl)
 	    dout(10) << fg << " first " << dir->first << " -> " << fgfirst
 		     << " on " << *dir << dendl;
 	    dir->first = fgfirst;
-	    fnode_t *pf = dir->get_projected_fnode();
-	    finish_scatter_update(&nestlock, dir,
-				  inode.rstat.version, pf->accounted_rstat.version);
+	    finish_scatter_update(&nestlock, dir, inode.rstat.version,
+				  dir->get_projected_fnode()->accounted_rstat.version);
 	  }
 	}
       }
@@ -1970,12 +1968,12 @@ void CInode::start_scatter(ScatterLock *lock)
 {
   dout(10) << __func__ << " " << *lock << " on " << *this << dendl;
   assert(is_auth());
-  mempool_inode *pi = get_projected_inode();
+  const mempool_inode *pi = get_projected_inode();
 
   for (const auto &p : dirfrags) {
     frag_t fg = p.first;
     CDir *dir = p.second;
-    fnode_t *pf = dir->get_projected_fnode();
+    const fnode_t *pf = dir->get_projected_fnode();
     dout(20) << fg << " " << *dir << dendl;
 
     if (!dir->is_auth())
@@ -2030,7 +2028,7 @@ void CInode::finish_scatter_update(ScatterLock *lock, CDir *dir,
       MutationRef mut(new MutationImpl());
       mut->ls = mdlog->get_current_segment();
 
-      mempool_inode *pi = get_projected_inode();
+      const mempool_inode *pi = get_projected_inode();
       fnode_t *pf = dir->project_fnode();
 
       const char *ename = 0;
@@ -2134,7 +2132,7 @@ void CInode::finish_scatter_gather_update(int type)
 
       // adjust summation
       assert(is_auth());
-      mempool_inode *pi = get_projected_inode();
+      mempool_inode *pi = _get_projected_inode();
 
       bool touched_mtime = false, touched_chattr = false;
       dout(20) << "  orig dirstat " << pi->dirstat << dendl;
@@ -2152,9 +2150,11 @@ void CInode::finish_scatter_gather_update(int type)
 	  dirstat_valid = false;
 	}
 
-	fnode_t *pf = dir->get_projected_fnode();
+	const fnode_t *pf;
 	if (update)
 	  pf = dir->project_fnode();
+	else
+	  pf = dir->get_projected_fnode();
 
 	if (pf->accounted_fragstat.version == pi->dirstat.version - 1) {
 	  dout(20) << fg << "           fragstat " << pf->fragstat << dendl;
@@ -2171,12 +2171,13 @@ void CInode::finish_scatter_gather_update(int type)
 	  assert(!"bad/negative fragstat" == g_conf->mds_verify_scatter);
 	  
 	  if (pf->fragstat.nfiles < 0)
-	    pf->fragstat.nfiles = 0;
+	    const_cast<fnode_t*>(pf)->fragstat.nfiles = 0;
 	  if (pf->fragstat.nsubdirs < 0)
-	    pf->fragstat.nsubdirs = 0;
+	    const_cast<fnode_t*>(pf)->fragstat.nsubdirs = 0;
 	}
 
 	if (update) {
+	  fnode_t *pf = dir->_get_projected_fnode();
 	  pf->accounted_fragstat = pf->fragstat;
 	  pf->fragstat.version = pf->accounted_fragstat.version = pi->dirstat.version;
 	  dout(10) << fg << " updated accounted_fragstat " << pf->fragstat << " on " << *dir << dendl;
@@ -2243,7 +2244,7 @@ void CInode::finish_scatter_gather_update(int type)
 
       // adjust summation
       assert(is_auth());
-      mempool_inode *pi = get_projected_inode();
+      mempool_inode *pi = _get_projected_inode();
       dout(20) << "  orig rstat " << pi->rstat << dendl;
       pi->rstat.version++;
       for (const auto &p : dirfrags) {
@@ -2259,9 +2260,11 @@ void CInode::finish_scatter_gather_update(int type)
 	  rstat_valid = false;
 	}
 
-	fnode_t *pf = dir->get_projected_fnode();
+	const fnode_t *pf;
 	if (update)
 	  pf = dir->project_fnode();
+	else
+	  pf = dir->get_projected_fnode();
 
 	if (pf->accounted_rstat.version == pi->rstat.version-1) {
 	  // only pull this frag's dirty rstat inodes into the frag if
@@ -2285,6 +2288,7 @@ void CInode::finish_scatter_gather_update(int type)
 	  dout(20) << fg << " skipping STALE accounted_rstat " << pf->accounted_rstat << dendl;
 	}
 	if (update) {
+	  fnode_t *pf = dir->_get_projected_fnode();
 	  pf->accounted_rstat = pf->rstat;
 	  dir->dirty_old_rstat.clear();
 	  pf->rstat.version = pf->accounted_rstat.version = pi->rstat.version;
@@ -2350,7 +2354,7 @@ void CInode::finish_scatter_gather_update_accounted(int type, MutationRef& mut, 
 
     dout(10) << " journaling updated frag accounted_ on " << *dir << dendl;
     assert(dir->is_projected());
-    fnode_t *pf = dir->get_projected_fnode();
+    fnode_t *pf = dir->_get_projected_fnode();
     pf->version = dir->pre_dirty();
     mut->add_projected_fnode(dir);
     metablob->add_dir(dir, true);
@@ -2634,8 +2638,8 @@ CInode::mempool_old_inode& CInode::cow_old_inode(snapid_t follows, bool cow_head
 {
   assert(follows >= first);
 
-  mempool_inode *pi = cow_head ? get_projected_inode() : get_previous_projected_inode();
-  mempool_xattr_map *px = cow_head ? get_projected_xattrs() : get_previous_projected_xattrs();
+  const mempool_inode *pi = cow_head ? get_projected_inode() : get_previous_projected_inode();
+  const mempool_xattr_map *px = cow_head ? get_projected_xattrs() : get_previous_projected_xattrs();
 
   mempool_old_inode &old = old_inodes[follows];
   old.first = first;
@@ -3111,7 +3115,7 @@ int CInode::get_xlocker_mask(client_t client) const
     (linklock.gcaps_xlocker_mask(client) << linklock.get_cap_shift());
 }
 
-int CInode::get_caps_allowed_for_client(Session *session, mempool_inode *file_i) const
+int CInode::get_caps_allowed_for_client(Session *session, const mempool_inode *file_i) const
 {
   client_t client = session->get_client();
   int allowed;
@@ -3245,10 +3249,9 @@ int CInode::encode_inodestat(bufferlist& bl, Session *session,
   bool valid = true;
 
   // pick a version!
-  mempool_inode *oi = &inode;
-  mempool_inode *pi = get_projected_inode();
-
-  CInode::mempool_xattr_map *pxattrs = nullptr;
+  const mempool_inode *oi = &inode;
+  const mempool_inode *pi = get_projected_inode();
+  const mempool_xattr_map *pxattrs = nullptr;
 
   if (snapid != CEPH_NOSNAP) {
 
@@ -3314,7 +3317,7 @@ int CInode::encode_inodestat(bufferlist& bl, Session *session,
   bool plocal = versionlock.get_last_wrlock_client() == client;
   bool ppolicy = policylock.is_xlocked_by_client(client) || get_loner()==client;
   
-  mempool_inode *any_i = (pfile|pauth|plink|pxattr|plocal) ? pi : oi;
+  const mempool_inode *any_i = (pfile|pauth|plink|pxattr|plocal) ? pi : oi;
   
   dout(20) << " pfile " << pfile << " pauth " << pauth
 	   << " plink " << plink << " pxattr " << pxattr
@@ -3323,7 +3326,7 @@ int CInode::encode_inodestat(bufferlist& bl, Session *session,
 	   << " valid=" << valid << dendl;
 
   // file
-  mempool_inode *file_i = pfile ? pi:oi;
+  const CInode::mempool_inode *file_i = pfile ? pi:oi;
   file_layout_t layout;
   if (is_dir()) {
     layout = (ppolicy ? pi : oi)->layout;
@@ -3332,11 +3335,19 @@ int CInode::encode_inodestat(bufferlist& bl, Session *session,
   }
 
   // max_size is min of projected, actual
-  uint64_t max_size =
-    std::min(oi->client_ranges.count(client) ?
-	oi->client_ranges[client].range.last : 0,
-	pi->client_ranges.count(client) ?
-	pi->client_ranges[client].range.last : 0);
+  uint64_t max_size;
+  {
+    auto p = oi->client_ranges.find(client);
+    if (p == oi->client_ranges.end()) {
+      max_size = 0;
+    } else {
+      auto q = pi->client_ranges.find(client);
+      if (q == pi->client_ranges.end())
+	max_size = 0;
+      else
+	max_size = std::min(p->second.range.last, q->second.range.last);
+    }
+  }
 
   // inline data
   version_t inline_version = 0;
@@ -3358,13 +3369,11 @@ int CInode::encode_inodestat(bufferlist& bl, Session *session,
   }
 
   // auth
-  mempool_inode *auth_i = pauth ? pi:oi;
-
+  const mempool_inode *auth_i = pauth ? pi:oi;
   // link
-  mempool_inode *link_i = plink ? pi:oi;
-  
+  const mempool_inode *link_i = plink ? pi:oi;
   // xattr
-  mempool_inode *xattr_i = pxattr ? pi:oi;
+  const mempool_inode *xattr_i = pxattr ? pi:oi;
 
   using ceph::encode;
   // xattr
@@ -3547,7 +3556,7 @@ int CInode::encode_inodestat(bufferlist& bl, Session *session,
     encode(inline_data, bl);
   }
   if (session->connection->has_feature(CEPH_FEATURE_MDS_QUOTA)) {
-    mempool_inode *policy_i = ppolicy ? pi : oi;
+    const mempool_inode *policy_i = ppolicy ? pi : oi;
     encode(policy_i->quota, bl);
   }
   if (session->connection->has_feature(CEPH_FEATURE_FS_FILE_LAYOUT_V2)) {
@@ -3572,9 +3581,9 @@ void CInode::encode_cap_message(MClientCaps *m, Capability *cap)
   bool plink = linklock.is_xlocked_by_client(client);
   bool pxattr = xattrlock.is_xlocked_by_client(client);
  
-  mempool_inode *oi = &inode;
-  mempool_inode *pi = get_projected_inode();
-  mempool_inode *i = (pfile|pauth|plink|pxattr) ? pi : oi;
+  const mempool_inode *oi = &inode;
+  const mempool_inode *pi = get_projected_inode();
+  const mempool_inode *i = (pfile|pauth|plink|pxattr) ? pi : oi;
 
   dout(20) << __func__ << " pfile " << pfile
 	   << " pauth " << pauth << " plink " << plink << " pxattr " << pxattr
@@ -3600,9 +3609,18 @@ void CInode::encode_cap_message(MClientCaps *m, Capability *cap)
   }
 
   // max_size is min of projected, actual.
-  uint64_t oldms = oi->client_ranges.count(client) ? oi->client_ranges[client].range.last : 0;
-  uint64_t newms = pi->client_ranges.count(client) ? pi->client_ranges[client].range.last : 0;
-  m->max_size = std::min(oldms, newms);
+  {
+    auto p = oi->client_ranges.find(client);
+    if (p == oi->client_ranges.end()) {
+      m->max_size = 0;
+    } else {
+      auto q = pi->client_ranges.find(client);
+      if (q == pi->client_ranges.end())
+	m->max_size = 0;
+      else
+	m->max_size = std::min(p->second.range.last, q->second.range.last);
+    }
+  }
 
   i = pauth ? pi:oi;
   m->head.mode = i->mode;
@@ -4469,11 +4487,11 @@ void CInode::scrub_info_create() const
 
   // break out of const-land to set up implicit initial state
   CInode *me = const_cast<CInode*>(this);
-  mempool_inode *in = me->get_projected_inode();
+  const mempool_inode *pi = me->get_projected_inode();
 
   scrub_info_t *si = new scrub_info_t();
-  si->scrub_start_stamp = si->last_scrub_stamp = in->last_scrub_stamp;
-  si->scrub_start_version = si->last_scrub_version = in->last_scrub_version;
+  si->scrub_start_stamp = si->last_scrub_stamp = pi->last_scrub_stamp;
+  si->scrub_start_version = si->last_scrub_version = pi->last_scrub_version;
 
   me->scrub_infop = si;
 }
@@ -4684,8 +4702,7 @@ void CInode::maybe_export_pin(bool update)
 void CInode::set_export_pin(mds_rank_t rank)
 {
   assert(is_dir());
-  assert(is_projected());
-  get_projected_inode()->export_pin = rank;
+  _get_projected_inode()->export_pin = rank;
   maybe_export_pin(true);
 }
 

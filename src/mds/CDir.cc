@@ -1139,7 +1139,7 @@ void CDir::merge(list<CDir*>& subs, list<MDSInternalContextBase*>& waiters, bool
 
 void CDir::resync_accounted_fragstat()
 {
-  fnode_t *pf = get_projected_fnode();
+  fnode_t *pf = _get_projected_fnode();
   auto pi = inode->get_projected_inode();
 
   if (pf->accounted_fragstat.version != pi->dirstat.version) {
@@ -1154,7 +1154,7 @@ void CDir::resync_accounted_fragstat()
  */
 void CDir::resync_accounted_rstat()
 {
-  fnode_t *pf = get_projected_fnode();
+  fnode_t *pf = _get_projected_fnode();
   auto pi = inode->get_projected_inode();
   
   if (pf->accounted_rstat.version != pi->rstat.version) {
@@ -3099,17 +3099,17 @@ void CDir::scrub_info_create() const
 
   // break out of const-land to set up implicit initial state
   CDir *me = const_cast<CDir*>(this);
-  fnode_t *fn = me->get_projected_fnode();
+  const fnode_t *fi = me->get_projected_fnode();
 
   std::unique_ptr<scrub_info_t> si(new scrub_info_t());
 
   si->last_recursive.version = si->recursive_start.version =
-      fn->recursive_scrub_version;
+      fi->recursive_scrub_version;
   si->last_recursive.time = si->recursive_start.time =
-      fn->recursive_scrub_stamp;
+      fi->recursive_scrub_stamp;
 
-  si->last_local.version = fn->localized_scrub_version;
-  si->last_local.time = fn->localized_scrub_stamp;
+  si->last_local.version = fi->localized_scrub_version;
+  si->last_local.time = fi->localized_scrub_stamp;
 
   me->scrub_infop.swap(si);
 }

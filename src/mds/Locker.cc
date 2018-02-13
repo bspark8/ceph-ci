@@ -172,7 +172,7 @@ void Locker::include_snap_rdlocks(set<SimpleLock*>& rdlocks, CInode *in)
 }
 
 void Locker::include_snap_rdlocks_wlayout(set<SimpleLock*>& rdlocks, CInode *in,
-					  file_layout_t **layout)
+					  const file_layout_t **layout)
 {
   //rdlock ancestor snaps
   CInode *t = in;
@@ -2301,7 +2301,7 @@ public:
   }
 };
 
-uint64_t Locker::calc_new_max_size(CInode::mempool_inode *pi, uint64_t size)
+uint64_t Locker::calc_new_max_size(const CInode::mempool_inode *pi, uint64_t size)
 {
   uint64_t new_max = (size + 1) << 1;
   uint64_t max_inc = g_conf->mds_client_writeable_range_max_inc_objs;
@@ -2316,7 +2316,7 @@ void Locker::calc_new_client_ranges(CInode *in, uint64_t size,
 				    CInode::mempool_inode::client_range_map *new_ranges,
 				    bool *max_increased)
 {
-  auto latest = in->get_projected_inode();
+  const auto latest = in->get_projected_inode();
   uint64_t ms;
   if(latest->has_layout()) {
     ms = calc_new_max_size(latest, size);
@@ -2333,12 +2333,12 @@ void Locker::calc_new_client_ranges(CInode *in, uint64_t size,
     if ((p->second->issued() | p->second->wanted()) & (CEPH_CAP_FILE_WR|CEPH_CAP_FILE_BUFFER)) {
       client_writeable_range_t& nr = (*new_ranges)[p->first];
       nr.range.first = 0;
-      if (latest->client_ranges.count(p->first)) {
-	client_writeable_range_t& oldr = latest->client_ranges[p->first];
-	if (ms > oldr.range.last)
+      auto q = latest->client_ranges.find(p->first);
+      if (q != latest->client_ranges.end()) {
+	if (ms > q->second.range.last)
 	  *max_increased = true;
-	nr.range.last = std::max(ms, oldr.range.last);
-	nr.follows = oldr.follows;
+	nr.range.last = std::max(ms, q->second.range.last);
+	nr.follows = q->second.follows;
       } else {
 	*max_increased = true;
 	nr.range.last = ms;
@@ -2355,7 +2355,7 @@ bool Locker::check_inode_max_size(CInode *in, bool force_wrlock,
   assert(in->is_auth());
   assert(in->is_file());
 
-  CInode::mempool_inode *latest = in->get_projected_inode();
+  const CInode::mempool_inode *latest = in->get_projected_inode();
   CInode::mempool_inode::client_range_map new_ranges;
   uint64_t size = latest->size;
   bool update_size = new_size > 0;
@@ -3299,12 +3299,17 @@ bool Locker::_do_cap_update(CInode *in, Capability *cap,
 	   << " on " << *in << dendl;
   assert(in->is_auth());
   client_t client = m->get_source().num();
-  CInode::mempool_inode *latest = in->get_projected_inode();
+  const CInode::mempool_inode *latest = in->get_projected_inode();
 
   // increase or zero max_size?
   uint64_t size = m->get_size();
   bool change_max = false;
-  uint64_t old_max = latest->client_ranges.count(client) ? latest->client_ranges[client].range.last : 0;
+
+  uint64_t old_max;
+  {
+    auto it = latest->client_ranges.find(client);
+    old_max = (it != latest->client_ranges.end()) ? it->second.range.last : 0;
+  }
   uint64_t new_max = old_max;
   
   if (in->is_file()) {

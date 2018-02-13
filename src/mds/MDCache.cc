@@ -1735,7 +1735,6 @@ void MDCache::project_rstat_inode_to_frag(CInode *cur, CDir *parent, snapid_t fi
 					  int linkunlink, SnapRealm *prealm)
 {
   CDentry *parentdn = cur->get_projected_parent_dn();
-  CInode::mempool_inode *curi = cur->get_projected_inode();
 
   if (cur->first > first)
     first = cur->first;
@@ -1773,7 +1772,9 @@ void MDCache::project_rstat_inode_to_frag(CInode *cur, CDir *parent, snapid_t fi
       assert(cur->is_frozen_inode());
       update = false;
     }
-    _project_rstat_inode_to_frag(*curi, std::max(first, floor), cur->last, parent,
+    CInode::mempool_inode *pi = cur->is_projected() ?
+                                cur->_get_projected_inode() : cur->get_inode();
+    _project_rstat_inode_to_frag(*pi, std::max(first, floor), cur->last, parent,
 				 linkunlink, update);
   }
 
@@ -1820,9 +1821,9 @@ void MDCache::_project_rstat_inode_to_frag(CInode::mempool_inode& inode, snapid_
      * update one segment at a time.  then loop to cover the whole
      * [ofirst,last] interval.
      */    
-    nest_info_t *prstat;
     snapid_t first;
-    fnode_t *pf = parent->get_projected_fnode();
+    nest_info_t *prstat;
+    fnode_t *pf = parent->_get_projected_fnode();
     if (last == CEPH_NOSNAP) {
       if (g_conf->mds_snap_rstat)
 	first = std::max(ofirst, parent->first);
@@ -1911,7 +1912,8 @@ void MDCache::_project_rstat_inode_to_frag(CInode::mempool_inode& inode, snapid_
   }
 }
 
-void MDCache::project_rstat_frag_to_inode(nest_info_t& rstat, nest_info_t& accounted_rstat,
+void MDCache::project_rstat_frag_to_inode(const nest_info_t& rstat,
+					  const nest_info_t& accounted_rstat,
 					  snapid_t ofirst, snapid_t last, 
 					  CInode *pin, bool cow_head)
 {
@@ -1926,7 +1928,7 @@ void MDCache::project_rstat_frag_to_inode(nest_info_t& rstat, nest_info_t& accou
     CInode::mempool_inode *pi;
     snapid_t first;
     if (last == pin->last) {
-      pi = pin->get_projected_inode();
+      pi = pin->_get_projected_inode();
       first = std::max(ofirst, pin->first);
       if (first > pin->first) {
 	auto &old = pin->cow_old_inode(first-1, cow_head);
@@ -12465,16 +12467,15 @@ void MDCache::repair_dirfrag_stats_work(MDRequestRef& mdr)
       frag_info.nfiles++;
   }
 
-  fnode_t *pf = dir->get_projected_fnode();
-  bool good_fragstat = frag_info.same_sums(pf->fragstat);
-  bool good_rstat = nest_info.same_sums(pf->rstat);
+  bool good_fragstat = frag_info.same_sums(dir->get_projected_fnode()->fragstat);
+  bool good_rstat = nest_info.same_sums(dir->get_projected_fnode()->rstat);
   if (good_fragstat && good_rstat) {
     dout(10) << __func__ << " no corruption found" << dendl;
     mds->server->respond_to_request(mdr, 0);
     return;
   }
 
-  pf = dir->project_fnode();
+  fnode_t *pf = dir->project_fnode();
   pf->version = dir->pre_dirty();
   mdr->add_projected_fnode(dir);
 
