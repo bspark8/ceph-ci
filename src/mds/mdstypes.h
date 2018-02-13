@@ -412,6 +412,7 @@ inline bool operator==(const client_writeable_range_t& l,
 
 struct inline_data_t {
 private:
+  static const bufferlist empty;
   std::unique_ptr<bufferlist> blp;
 public:
   version_t version = 1;
@@ -423,6 +424,9 @@ public:
     if (!blp)
       blp.reset(new bufferlist);
     return *blp;
+  }
+  const bufferlist& get_data() const {
+    return blp ? *blp : empty;
   }
   size_t length() const { return blp ? blp->length() : 0; }
 

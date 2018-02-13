@@ -188,12 +188,9 @@ public:
     else
       return &projected_fnode.back();
   }
-
-  fnode_t *get_projected_fnode() {
-    if (projected_fnode.empty())
-      return &fnode;
-    else
-      return &projected_fnode.back();
+  fnode_t *_get_projected_fnode() {
+    assert(!projected_fnode.empty());
+    return &projected_fnode.back();
   }
   fnode_t *project_fnode();
 

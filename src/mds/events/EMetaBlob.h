@@ -493,8 +493,9 @@ private:
     add_primary_dentry(dn, 0, dirty, dirty_parent, dirty_pool);
   }
 
-  void add_root(bool dirty, CInode *in, const CInode::mempool_inode *pi=0, fragtree_t *pdft=0, bufferlist *psnapbl=0,
-		    CInode::mempool_xattr_map *px=0) {
+  void add_root(bool dirty, CInode *in, const CInode::mempool_inode *pi=0,
+		const fragtree_t *pdft=0, const bufferlist *psnapbl=0,
+		const CInode::mempool_xattr_map *px=0) {
     in->last_journaled = event_seq;
     //cout << "journaling " << in->inode.ino << " at " << my_offset << std::endl;
 

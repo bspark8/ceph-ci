@@ -220,6 +220,9 @@ ostream& operator<<(ostream& out, const client_writeable_range_t& r)
 /*
  * inline_data_t
  */
+
+bufferlist const inline_data_t::empty;
+
 void inline_data_t::encode(bufferlist &bl) const
 {
   using ceph::encode;

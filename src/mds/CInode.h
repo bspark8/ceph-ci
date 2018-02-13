@@ -83,7 +83,7 @@ public:
   mempool_inode inode;        // the inode itself
   mempool::mds_co::string                symlink;      // symlink dest, if symlink
   mempool_xattr_map xattrs;
-  fragtree_t                 dirfragtree;  // dir frag tree, if any.  always consistent with our dirfrag map.
+  fragtree_t                dirfragtree;  // dir frag tree, if any.  always consistent with our dirfrag map.
   mempool_old_inode_map old_inodes;   // key = last, value.first = first
   snapid_t                  oldest_snap = CEPH_NOSNAP;
   damage_flags_t            damage_flags = 0;
@@ -458,13 +458,12 @@ public:
     else
       return &projected_nodes.back().inode;
   }
-  mempool_inode *get_projected_inode() {
-    if (projected_nodes.empty())
-      return &inode;
-    else
-      return &projected_nodes.back().inode;
+  mempool_inode *_get_projected_inode() {
+    assert(!projected_nodes.empty());
+    return &projected_nodes.back().inode;
   }
-  mempool_inode *get_previous_projected_inode() {
+
+  const mempool_inode *get_previous_projected_inode() const {
     assert(!projected_nodes.empty());
     auto it = projected_nodes.rbegin();
     ++it;
@@ -474,7 +473,7 @@ public:
       return &inode;
   }
 
-  mempool_xattr_map *get_projected_xattrs() {
+  const mempool_xattr_map *get_projected_xattrs() const {
     if (num_projected_xattrs > 0) {
       for (auto it = projected_nodes.rbegin(); it != projected_nodes.rend(); ++it)
 	if (it->xattrs)
@@ -482,7 +481,7 @@ public:
     }
     return &xattrs;
   }
-  mempool_xattr_map *get_previous_projected_xattrs() {
+  const mempool_xattr_map *get_previous_projected_xattrs() const {
     if (num_projected_xattrs > 0) {
       for (auto it = ++projected_nodes.rbegin(); it != projected_nodes.rend(); ++it)
 	if (it->xattrs)
@@ -720,7 +719,7 @@ public:
   vinodeno_t vino() const { return vinodeno_t(inode.ino, last); }
   int d_type() const { return IFTODT(inode.mode); }
 
-  mempool_inode& get_inode() { return inode; }
+  mempool_inode* get_inode() { return &inode; }
   CDentry* get_parent_dn() { return parent; }
   const CDentry* get_parent_dn() const { return parent; }
   CDentry* get_projected_parent_dn() { return !projected_parent.empty() ? projected_parent.back() : parent; }
@@ -1005,7 +1004,7 @@ public:
   int get_caps_allowed_by_type(int type) const;
   int get_caps_careful() const;
   int get_xlocker_mask(client_t client) const;
-  int get_caps_allowed_for_client(Session *s, mempool_inode *file_i) const;
+  int get_caps_allowed_for_client(Session *s, const mempool_inode *file_i) const;
 
   // caps issued, wanted
   int get_caps_issued(int *ploner = 0, int *pother = 0, int *pxlocker = 0,
