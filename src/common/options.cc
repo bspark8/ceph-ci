@@ -677,7 +677,7 @@ std::vector<Option> get_global_options() {
     .set_default(false)
     .set_description(""),
 
-    Option("ms_dispatch_throttle_bytes", Option::TYPE_UINT, Option::LEVEL_ADVANCED)
+    Option("ms_dispatch_throttle_bytes", Option::TYPE_SIZE, Option::LEVEL_ADVANCED)
     .set_default(100_M)
     .set_description(""),
 
@@ -1583,7 +1583,7 @@ std::vector<Option> get_global_options() {
     .set_default(10.0)
     .set_description("Seconds before in-flight op is considered 'laggy' and we query mon for the latest OSDMap"),
 
-    Option("objecter_inflight_op_bytes", Option::TYPE_UINT, Option::LEVEL_ADVANCED)
+    Option("objecter_inflight_op_bytes", Option::TYPE_SIZE, Option::LEVEL_ADVANCED)
     .set_default(100_M)
     .set_description("Max in-flight data in bytes (both directions)"),
 
