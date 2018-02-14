@@ -25,10 +25,14 @@ else
     COREPATTERN="core.%e.%p.%t"
 fi
 
-function finish() {
+function cleanup() {
     if [ -n "$precore" ]; then
         sudo sysctl -w ${KERNCORE}=${precore}
     fi
+}
+
+function finish() {
+    cleanup
     exit 0
 }
 
@@ -116,9 +120,7 @@ do
         fi
     fi
 done
-if [ -n "$precore" ]; then
-    sudo sysctl -w ${KERNCORE}="${precore}"
-fi
+cleanup
 
 if [ "$errors" != "0" ]; then
     echo "$errors TESTS FAILED, $count TOTAL TESTS"
