@@ -1763,9 +1763,6 @@ public:
 
   private:
     ~LingerOp() override {
-      if (ctx_budget != -1) {
-	objecter->put_op_budget_bytes(ctx_budget);
-      }
       delete watch_context;
     }
   };

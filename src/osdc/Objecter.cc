@@ -3352,15 +3352,7 @@ void Objecter::_throttle_op(Op *op,
 
 int Objecter::take_linger_budget(LingerOp *info)
 {
-  int budget = calc_op_budget(info->ops);
-  if (keep_balanced_budget) {
-    op_throttle_bytes.get(budget);
-    op_throttle_ops.get(1);
-  } else {
-    op_throttle_bytes.take(budget);
-    op_throttle_ops.take(1);
-  }
-  return budget;
+  return 1;
 }
 
 void Objecter::unregister_op(Op *op)
