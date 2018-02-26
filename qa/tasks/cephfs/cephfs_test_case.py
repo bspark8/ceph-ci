@@ -1,11 +1,11 @@
 import json
 import logging
 from unittest import case
-from tasks.ceph_test_case import CephTestCase
 import os
 import re
 from StringIO import StringIO
 
+from tasks.ceph_test_case import CephTestCase, wait_until_true
 from tasks.cephfs.fuse_mount import FuseMount
 
 from teuthology.orchestra import run
@@ -248,7 +248,7 @@ class CephFSTestCase(CephTestCase):
             daemon_ids = self.mds_cluster.mds_ids
 
         try:
-            self.wait_until_true(
+            wait_until_true(
                 lambda: set(daemon_ids) & set(get_daemon_names()) == set(daemon_ids),
                 timeout=30
             )

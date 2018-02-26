@@ -8,6 +8,44 @@ from teuthology.orchestra.run import CommandFailedError
 log = logging.getLogger(__name__)
 
 
+def wait_until_true(condition, timeout):
+    period = 5
+    elapsed = 0
+    while True:
+        if condition():
+            log.debug("wait_until_true: success in {0}s".format(elapsed))
+            return
+        else:
+            if elapsed >= timeout:
+                raise RuntimeError("Timed out after {0}s".format(elapsed))
+            else:
+                log.debug("wait_until_true: waiting...")
+            time.sleep(period)
+            elapsed += period
+
+def wait_for_health(manager, pattern, timeout):
+    """
+    Wait until 'ceph health' contains messages matching the pattern
+    """
+    def seen_health_warning():
+        health = manager.get_mon_health()
+        codes = [s for s in health['checks']]
+        summary_strings = [s[1]['summary']['message'] for s in health['checks'].iteritems()]
+        if len(summary_strings) == 0:
+            log.debug("Not expected number of summary strings ({0})".format(summary_strings))
+            return False
+        else:
+            for ss in summary_strings:
+                if pattern in ss:
+                     return True
+            if pattern in codes:
+                return True
+
+        log.debug("Not found expected summary strings yet ({0})".format(summary_strings))
+        return False
+
+    wait_until_true(seen_health_warning, timeout)
+
 class CephTestCase(unittest.TestCase):
     """
     For test tasks that want to define a structured set of
@@ -78,29 +116,6 @@ class CephTestCase(unittest.TestCase):
 
         return ContextManager()
 
-    def wait_for_health(self, pattern, timeout):
-        """
-        Wait until 'ceph health' contains messages matching the pattern
-        """
-        def seen_health_warning():
-            health = self.ceph_cluster.mon_manager.get_mon_health()
-            codes = [s for s in health['checks']]
-            summary_strings = [s[1]['summary']['message'] for s in health['checks'].iteritems()]
-            if len(summary_strings) == 0:
-                log.debug("Not expected number of summary strings ({0})".format(summary_strings))
-                return False
-            else:
-                for ss in summary_strings:
-                    if pattern in ss:
-                         return True
-                if pattern in codes:
-                    return True
-
-            log.debug("Not found expected summary strings yet ({0})".format(summary_strings))
-            return False
-
-        self.wait_until_true(seen_health_warning, timeout)
-
     def wait_for_health_clear(self, timeout):
         """
         Wait until `ceph health` returns no messages
@@ -109,7 +124,7 @@ class CephTestCase(unittest.TestCase):
             health = self.ceph_cluster.mon_manager.get_mon_health()
             return len(health['checks']) == 0
 
-        self.wait_until_true(is_clear, timeout)
+        wait_until_true(is_clear, timeout)
 
     def wait_until_equal(self, get_fn, expect_val, timeout, reject_fn=None):
         period = 5
@@ -131,20 +146,3 @@ class CephTestCase(unittest.TestCase):
                 elapsed += period
 
         log.debug("wait_until_equal: success")
-
-    def wait_until_true(self, condition, timeout):
-        period = 5
-        elapsed = 0
-        while True:
-            if condition():
-                log.debug("wait_until_true: success in {0}s".format(elapsed))
-                return
-            else:
-                if elapsed >= timeout:
-                    raise RuntimeError("Timed out after {0}s".format(elapsed))
-                else:
-                    log.debug("wait_until_true: waiting...")
-                time.sleep(period)
-                elapsed += period
-
-

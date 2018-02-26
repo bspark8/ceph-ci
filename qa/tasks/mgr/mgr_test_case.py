@@ -4,7 +4,7 @@ import json
 import logging
 
 from teuthology import misc
-from tasks.ceph_test_case import CephTestCase
+from tasks.ceph_test_case import CephTestCase, wait_until_true
 
 # TODO move definition of CephCluster away from the CephFS stuff
 from tasks.cephfs.filesystem import CephCluster
@@ -95,12 +95,12 @@ class MgrTestCase(CephTestCase):
             daemon.restart()
 
         # Wait for an active to come up
-        self.wait_until_true(lambda: self.mgr_cluster.get_active_id() != "",
+        wait_until_true(lambda: self.mgr_cluster.get_active_id() != "",
                              timeout=20)
 
         expect_standbys = set(self.mgr_cluster.mgr_ids) \
                           - {self.mgr_cluster.get_active_id()}
-        self.wait_until_true(
+        wait_until_true(
             lambda: set(self.mgr_cluster.get_standby_ids()) == expect_standbys,
             timeout=20)
 
@@ -124,7 +124,7 @@ class MgrTestCase(CephTestCase):
                 log.info("Restarted after module load (new active {0}/{1})".format(
                     mgr_map['active_name'] , mgr_map['active_gid']))
             return done
-        self.wait_until_true(has_restarted, timeout=30)
+        wait_until_true(has_restarted, timeout=30)
 
 
     def _get_uri(self, service_name):
@@ -137,7 +137,7 @@ class MgrTestCase(CephTestCase):
             result = mgr_map['x']['services'].get(service_name, None)
             return result
 
-        self.wait_until_true(lambda: _get_or_none() is not None, 30)
+        wait_until_true(lambda: _get_or_none() is not None, 30)
 
         uri = mgr_map['x']['services'][service_name]
 
@@ -183,4 +183,4 @@ class MgrTestCase(CephTestCase):
                 log.info("Available after assign ports (new active {0}/{1})".format(
                     mgr_map['active_name'] , mgr_map['active_gid']))
             return done
-        self.wait_until_true(is_available, timeout=30)
+        wait_until_true(is_available, timeout=30)
