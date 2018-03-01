@@ -2636,6 +2636,7 @@ bool OSDMonitor::preprocess_pg_created(MonOpRequestRef op)
   auto m = static_cast<MOSDPGCreated*>(op->get_req());
   dout(10) << __func__ << " " << *m << dendl;
   auto session = m->get_session();
+  mon->no_reply(op);
   if (!session) {
     dout(10) << __func__ << ": no monitor session!" << dendl;
     return true;
@@ -2899,6 +2900,7 @@ bool OSDMonitor::preprocess_beacon(MonOpRequestRef op)
   auto beacon = static_cast<MOSDBeacon*>(op->get_req());
   // check caps
   auto session = beacon->get_session();
+  mon->no_reply(op);
   if (!session) {
     dout(10) << __func__ << " no monitor session!" << dendl;
     return true;
