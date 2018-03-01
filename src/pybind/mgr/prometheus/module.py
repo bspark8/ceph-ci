@@ -321,10 +321,22 @@ class Module(MgrModule):
                     " and metadata records for this osd".format(id_)
                 )
                 continue
-            dev_class = next((osd for osd in osd_devices if osd['id'] == id_))
+
+            dev_class = None
+            for osd_device in osd_devices:
+                if osd['id'] == id_:
+                    dev_class = osd_device['class']
+                    break
+
+            if dev_class is None:
+                self.log.info(
+                    "OSD {0} is missing from CRUSH map, skipping output".format(
+                        id_))
+                continue
+
             self.metrics['osd_metadata'].set(1, (
                 c_addr,
-                dev_class['class'],
+                dev_class,
                 id_,
                 p_addr
             ))
