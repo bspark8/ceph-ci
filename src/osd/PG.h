@@ -487,7 +487,6 @@ public:
     return ref;
   }
 
-
   // ctor
   PG(OSDService *o, OSDMapRef curmap,
      const PGPool &pool, spg_t p);
