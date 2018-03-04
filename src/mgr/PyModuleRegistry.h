@@ -81,18 +81,34 @@ public:
     : clog(clog_)
   {}
 
+  /**
+   * @return true if the mgrmap has changed such that the service needs restart
+   */
   bool handle_mgr_map(const MgrMap &mgr_map_)
   {
     Mutex::Locker l(lock);
 
-    bool modules_changed = mgr_map_.modules != mgr_map.modules;
-    mgr_map = mgr_map_;
+    if (mgr_map.epoch == 0) {
+      // First time we see MgrMap, set the enabled flags on modules
+      // This should always happen before someone calls standby_start
+      // or active_start
+      for (const auto &i : modules) {
+        const auto &module = i.second;
+        const bool enabled = (mgr_map.modules.count(module_name) > 0);
+        module.set_enabled(enabled);
+      }
 
-    if (standby_modules != nullptr) {
-      standby_modules->handle_mgr_map(mgr_map_);
+      return false;
+    } else {
+      bool modules_changed = mgr_map_.modules != mgr_map.modules;
+      mgr_map = mgr_map_;
+
+      if (standby_modules != nullptr) {
+        standby_modules->handle_mgr_map(mgr_map_);
+      }
+
+      return modules_changed;
     }
-
-    return modules_changed;
   }
 
   bool is_initialized() const
@@ -100,7 +116,7 @@ public:
     return mgr_map.epoch > 0;
   }
 
-  int init(const MgrMap &map);
+  int init();
 
   void active_start(
                 PyModuleConfig &config_,

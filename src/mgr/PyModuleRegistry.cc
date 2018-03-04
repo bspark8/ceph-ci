@@ -37,7 +37,7 @@ std::string PyModuleRegistry::config_prefix;
 
 
 
-int PyModuleRegistry::init(const MgrMap &map)
+int PyModuleRegistry::init()
 {
   Mutex::Locker locker(lock);
 
@@ -82,9 +82,9 @@ int PyModuleRegistry::init(const MgrMap &map)
   for (const auto& module_name : module_names) {
     dout(1) << "Loading python module '" << module_name << "'" << dendl;
 
-    bool enabled = (mgr_map.modules.count(module_name) > 0);
-
-    auto mod = std::make_shared<PyModule>(module_name, enabled);
+    // Everything starts disabled, set enabled flag on module
+    // when we see first MgrMap
+    auto mod = std::make_shared<PyModule>(module_name);
     int r = mod->load(pMainThreadState);
     if (r != 0) {
       // Don't use handle_pyerror() here; we don't have the GIL
@@ -113,6 +113,10 @@ void PyModuleRegistry::standby_start(MonClient *monc)
   assert(active_modules == nullptr);
   assert(standby_modules == nullptr);
   assert(is_initialized());
+
+  // Must have seen a MgrMap by this point, in order to know
+  // which modules should be enabled
+  assert(mgr_map.epoch > 0);
 
   dout(4) << "Starting modules in standby mode" << dendl;
 
@@ -158,6 +162,10 @@ void PyModuleRegistry::active_start(
 
   assert(active_modules == nullptr);
   assert(is_initialized());
+
+  // Must have seen a MgrMap by this point, in order to know
+  // which modules should be enabled
+  assert(mgr_map.epoch > 0);
 
   if (standby_modules != nullptr) {
     standby_modules->shutdown();
