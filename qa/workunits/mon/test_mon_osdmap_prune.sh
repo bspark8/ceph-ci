@@ -2,6 +2,8 @@
 
 . $(dirname $0)/../../standalone/ceph-helpers.sh
 
+set -x
+
 function wait_for_osdmap_manifest() {
 
   local what=${1:-"true"}
