@@ -52,6 +52,7 @@ namespace ceph {
 
     public:
       std::map<ClientKey, ClientInfoPtr> cli_info_map;
+      CephContext *g_cct;
 
       OpClassClientInfoMgr(CephContext *cct);
       ~OpClassClientInfoMgr();

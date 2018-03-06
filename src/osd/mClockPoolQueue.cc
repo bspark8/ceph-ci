@@ -37,7 +37,8 @@ namespace ceph {
   mClockPoolQueue::mClockPoolQueue(CephContext *cct) :
     queue(std::bind(&mClockPoolQueue::op_class_client_info_f, this, _1)),
     client_info_mgr(cct),
-    service(nullptr)
+    service(nullptr),
+    g_cct(cct)
   {
     // empty
   }
@@ -60,11 +61,11 @@ namespace ceph {
 				     pp->get_qos_lim());
 	return i->second;
       } else {
-	dmc::ClientInfo *client_info = new dmc::ClientInfo(pp->get_qos_res(),
-							   pp->get_qos_wgt(),
-							   pp->get_qos_lim());
-	client_info_mgr.cli_info_map[client.first] = client_info;
-	return client_info;
+	ldout(g_cct, 0) << "new ClientInfo(" << client.first << ")" << dendl;
+	client_info_mgr.cli_info_map[client.first] = new dmc::ClientInfo(pp->get_qos_res(),
+									 pp->get_qos_wgt(),
+									 pp->get_qos_lim());
+	return client_info_mgr.cli_info_map[client.first];
       }
     } else {
       return client_info_mgr.get_client_info(client.second);

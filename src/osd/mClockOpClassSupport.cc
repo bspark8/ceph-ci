@@ -49,7 +49,8 @@ namespace ceph {
       pool_default(cct->_conf->get_val<double>("osd_pool_default_mclock_res"),
 		   cct->_conf->get_val<double>("osd_pool_default_mclock_wgt"),
 		   cct->_conf->get_val<double>("osd_pool_default_mclock_lim")),
-      lock("OpClassClientInfoMgr::lock")
+      lock("OpClassClientInfoMgr::lock"),
+      g_cct(cct)
     {
       constexpr int rep_ops[] = {
 	MSG_OSD_REPOP,
@@ -84,6 +85,7 @@ namespace ceph {
     {
       Mutex::Locker l(get_lock());
       for (auto i : cli_info_map) {
+	lgeneric_subdout(g_cct, osd, 0) << "delete ClientInfo(" << i.first << ")" << dendl;
 	delete i.second;
 	i.second = nullptr;
       }

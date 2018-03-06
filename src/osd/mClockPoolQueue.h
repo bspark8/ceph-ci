@@ -46,6 +46,7 @@ namespace ceph {
     OSDService *service;
 
   public:
+    CephContext *g_cct;
 
     mClockPoolQueue(CephContext *cct);
 
