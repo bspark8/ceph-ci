@@ -21,6 +21,7 @@
 #include "common/errno.h"
 #include "common/hostname.h"
 
+#include <cctype>
 #include <boost/type_traits.hpp>
 
 /* Don't use standard Ceph logging in this file.
@@ -916,7 +917,7 @@ int md_config_t::_get_val(const std::string &key, std::string *value) const {
     } else if (double *dp = boost::get<double>(&config_value)) {
       oss << std::fixed << *dp;
     } else {
-      oss << config_value;
+      Option::print_value(oss, config_value);
     }
     *value = oss.str();
     return 0;
@@ -1038,6 +1039,70 @@ int md_config_t::_get_val_from_conf_file(const std::vector <std::string> &sectio
   return -ENOENT;
 }
 
+template<class Duration>
+std::chrono::seconds
+do_parse_duration(const char* unit, string val,
+		  size_t start, size_t* new_start)
+{
+  auto found = val.find(unit, start);
+  if (found == val.npos) {
+    *new_start = start;
+    return Duration{0};
+  }
+  val[found] = '\0';
+  string err;
+  char* s = &val[start];
+  auto intervals = strict_strtoll(s, 10, &err);
+  if (!err.empty()) {
+    throw invalid_argument(s);
+  }
+  auto secs = chrono::duration_cast<chrono::seconds>(Duration{intervals});
+  *new_start = found + strlen(unit);
+  return secs;
+}
+
+std::chrono::seconds parse_duration(const std::string& s)
+{
+  using namespace std::chrono;
+  auto secs = 0s;
+  size_t start = 0;
+  size_t new_start = 0;
+  using days_t = duration<int, std::ratio<3600 * 24>>;
+  auto v = s;
+  v.erase(std::remove_if(begin(v), end(v),
+			 [](char c){ return std::isspace(c);}), end(v));
+  if (auto delta = do_parse_duration<days_t>("days", v, start, &new_start);
+      delta.count()) {
+    start = new_start;
+    secs += delta;
+  }
+  if (auto delta = do_parse_duration<hours>("hours", v, start, &new_start);
+      delta.count()) {
+    start = new_start;
+    secs += delta;
+  }
+  if (auto delta = do_parse_duration<minutes>("minutes", v, start, &new_start);
+      delta.count()) {
+    start = new_start;
+    secs += delta;
+  }
+  if (auto delta = do_parse_duration<seconds>("seconds", v, start, &new_start);
+      delta.count()) {
+    start = new_start;
+    secs += delta;
+  }
+  if (new_start == 0) {
+    string err;
+    if (auto delta = std::chrono::seconds{strict_strtoll(s.c_str(), 10, &err)};
+	err.empty()) {
+      secs += delta;
+    } else {
+      throw invalid_argument(err);
+    }
+  }
+  return secs;
+}
+
 int md_config_t::set_val_impl(const std::string &raw_val, const Option &opt,
                               std::string *error_message)
 {
@@ -1096,6 +1161,18 @@ int md_config_t::set_val_impl(const std::string &raw_val, const Option &opt,
       return -EINVAL;
     }
     new_value = uuid;
+  } else if (opt.type == Option::TYPE_SIZE) {
+    Option::size_t sz{strict_sistrtoll(val.c_str(), error_message)};
+    if (!error_message->empty()) {
+      return -EINVAL;
+    }
+    new_value = sz;
+  } else if (opt.type == Option::TYPE_SECS) {
+    try {
+      new_value = parse_duration(val);
+    } catch (const invalid_argument&) {
+      return -EINVAL;
+    }
   } else {
     ceph_abort();
   }
@@ -1119,6 +1196,22 @@ int md_config_t::set_val_impl(const std::string &raw_val, const Option &opt,
   return 0;
 }
 
+namespace {
+template<typename Size>
+struct get_size_visitor : public boost::static_visitor<Size>
+{
+  template<typename T>
+  Size operator()(const T&) const {
+    return -1;
+  }
+  Size operator()(const Option::size_t& sz) const {
+    return static_cast<Size>(sz.value);
+  }
+  Size operator()(const Size& v) const {
+    return v;
+  }
+};
+
 /**
  * Handles assigning from a variant-of-types to a variant-of-pointers-to-types
  */
@@ -1139,7 +1232,20 @@ class assign_visitor : public boost::static_visitor<>
 
     *member = boost::get<T>(val);
   }
+  void operator()(uint64_t md_config_t::* ptr) const
+  {
+    using T = uint64_t;
+    auto member = const_cast<T*>(&(conf->*(boost::get<const T md_config_t::*>(ptr))));
+    *member = boost::apply_visitor(get_size_visitor<T>{}, val);
+  }
+  void operator()(int64_t md_config_t::* ptr) const
+  {
+    using T = int64_t;
+    auto member = const_cast<T*>(&(conf->*(boost::get<const T md_config_t::*>(ptr))));
+    *member = boost::apply_visitor(get_size_visitor<T>{}, val);
+  }
 };
+} // anonymous namespace
 
 void md_config_t::update_legacy_val(const Option &opt,
                                     md_config_t::member_ptr_t member_ptr)

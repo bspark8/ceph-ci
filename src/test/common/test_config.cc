@@ -188,6 +188,28 @@ TEST(md_config_t, set_val)
     free(run_dir);
     free(admin_socket);
   }
+  // set_val should support SI conversion
+  {
+    const string s{"512M"};
+    auto expected = Option::size_t{512 << 20};
+    EXPECT_EQ(0, conf.set_val("mgr_osd_bytes", s.c_str(), false));
+    EXPECT_EQ(expected, conf.get_val<Option::size_t>("mgr_osd_bytes"));
+    EXPECT_EQ(-EINVAL, conf.set_val("mgr_osd_bytes", "512 bits", false));
+    EXPECT_EQ(expected, conf.get_val<Option::size_t>("mgr_osd_bytes"));
+  }
+  // set_val should support 1 days 2 hours 4 minutes
+  {
+    using namespace std::chrono;
+    const string s{"1 days 2 hours 4 minutes"};
+    using days_t = duration<int, std::ratio<3600 * 24>>;
+    auto expected = (duration_cast<seconds>(days_t{1}) +
+		     duration_cast<seconds>(hours{2}) +
+		     duration_cast<seconds>(minutes{4}));
+    EXPECT_EQ(0, conf.set_val("mgr_tick_period", s.c_str(), false));
+    EXPECT_EQ(expected.count(), conf.get_val<seconds>("mgr_tick_period").count());
+    EXPECT_EQ(-EINVAL, conf.set_val("mgr_tick_period", "21 centuries", false));
+    EXPECT_EQ(expected.count(), conf.get_val<seconds>("mgr_tick_period").count());
+  }
 }
 
 TEST(Option, validation)
